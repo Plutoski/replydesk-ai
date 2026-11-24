@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ReplyDesk: hybrid AI for customer service</title>
+  <link rel="stylesheet" href="/src/style.css" />
+</head>
+<body>
+  <header class="top">
+    <div class="brand">
+      <span class="logo">RD</span>
+      <div>
+        <h1>ReplyDesk</h1>
+        <p class="tag">Triage and reply to customers with AI that runs on your device first</p>
+      </div>
+    </div>
+    <div class="pills">
+      <span class="pill" id="pill-net">Online</span>
+      <span class="pill" id="pill-device">On-device: checking…</span>
+    </div>
+  </header>
+
+  <div id="setup-warning" class="banner" hidden>
+    Firebase isn't configured yet. Copy <code>.env.example</code> to <code>.env</code>, fill in your project values, then restart <code>npm run dev</code>.
+  </div>
+
+  <main class="grid">
+    <section class="card">
+      <h2>1. Customer message</h2>
+      <div class="samples">
+        <span>Try a sample:</span>
+        <button class="chip" data-sample="delivery">Late delivery</button>
+        <button class="chip" data-sample="billing">Double charge</button>
+        <button class="chip" data-sample="account">Locked out</button>
+      </div>
+      <textarea id="message" rows="9" placeholder="Paste the customer's email or chat message here…"></textarea>
+
+      <div class="row">
+        <label>Tone
+          <select id="tone">
+            <option value="warm and empathetic">Warm</option>
+            <option value="professional and formal">Professional</option>
+            <option value="brief and direct">Concise</option>
+          </select>
+        </label>
+        <label>Sign as
+          <input id="agent" type="text" placeholder="AJ, Customer Support" />
+        </label>
+      </div>
+
+      <div class="row">
+        <label>Inference mode
+          <select id="mode">
+            <option value="PREFER_ON_DEVICE" selected>Prefer on-device (fallback to cloud)</option>
+            <option value="ONLY_ON_DEVICE">Only on-device</option>
+            <option value="PREFER_IN_CLOUD">Prefer cloud (fallback to device)</option>
+            <option value="ONLY_IN_CLOUD">Only cloud</option>
+          </select>
+        </label>
+      </div>
+
+      <div class="actions">
+        <button id="btn-init" class="secondary">Enable on-device AI</button>
+        <button id="btn-run" class="primary">Analyze &amp; draft reply</button>
+      </div>
+      <div id="progress" class="progress" hidden><div id="progress-bar"></div><span id="progress-text"></span></div>
+      <p id="error" class="error" hidden></p>
+    </section>
+
+    <section class="card">
+      <h2>2. Triage <span class="badge" id="badge-analysis" hidden></span></h2>
+      <div id="analysis" class="analysis empty">Run a message to see the summary, category, sentiment and urgency.</div>
+
+      <h2>3. Draft reply <span class="badge" id="badge-draft" hidden></span></h2>
+      <textarea id="draft" rows="10" placeholder="The drafted reply appears here. You can edit it before copying."></textarea>
+      <div class="actions">
+        <button id="btn-copy" class="secondary">Copy reply</button>
+      </div>
+    </section>
+
+    <section class="card wide">
+      <h2>Where did the AI run?</h2>
+      <div class="stats">
+        <div><strong id="stat-device">0</strong><span>on this device</span></div>
+        <div><strong id="stat-cloud">0</strong><span>in the cloud</span></div>
+        <div><strong id="stat-private">–</strong><span>kept on device</span></div>
+      </div>
+      <ol id="log" class="log"></ol>
+    </section>
+  </main>
+
+  <footer>Built with Firebase AI Logic hybrid inference · Chrome Prompt API (Gemini Nano) + Gemini in the cloud</footer>
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>
