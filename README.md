@@ -9,7 +9,7 @@ Built for **#BuildHybridAI 2026** with **Firebase AI Logic hybrid inference** on
 | **Web** (Chrome desktop) | Gemini Nano (Chrome Prompt API) | Gemini (`gemini-3.5-flash-lite`) | [`web/`](web) |
 | **iOS** (iPhone with Apple Intelligence) | Apple Foundation Models | Gemini (`gemini-3.5-flash-lite`) | [`ios/`](ios) |
 
-**Live demo:** _add your Firebase Hosting URL here_ · **Video:** _add your YouTube link here_
+**Live demo:** https://replydesk-a6c0a.web.app (open in Chrome desktop for on-device AI; other browsers show the cloud fallback) · **Video:** _add your YouTube link here_
 
 ## The problem
 
