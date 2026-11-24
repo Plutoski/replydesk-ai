@@ -17,7 +17,7 @@ const firebaseConfig = {
   appId: env.VITE_FIREBASE_APP_ID,
 };
 export const isConfigured = Boolean(firebaseConfig.apiKey && firebaseConfig.appId);
-const CLOUD_MODEL = env.VITE_CLOUD_MODEL || undefined; // undefined = SDK default
+const CLOUD_MODEL = env.VITE_CLOUD_MODEL || "gemini-3.5-flash-lite"; // SDK v13 needs a name whenever inCloudParams is set
 
 let ai = null;
 export function initFirebase() {
