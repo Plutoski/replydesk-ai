@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>ReplyDesk: hybrid AI for customer service</title>
+  <title>ReplyDesk: private AI replies for customer service</title>
   <link rel="stylesheet" href="/src/style.css" />
 </head>
 <body>
@@ -12,30 +12,41 @@
       <span class="logo">RD</span>
       <div>
         <h1>ReplyDesk</h1>
-        <p class="tag">Triage and reply to customers with AI that runs on your device first</p>
+        <p class="sub">AI replies for support agents. Customer details stay on your device.</p>
       </div>
     </div>
-    <div class="pills">
+    <div class="status">
       <span class="pill" id="pill-net">Online</span>
-      <span class="pill" id="pill-device">On-device: checking…</span>
+      <span class="pill" id="pill-device">On-device AI: checking…</span>
+      <label class="policy" title="Local only: the cloud is never called, even for long tickets.">
+        <input type="checkbox" id="policy" />
+        <span>Local only</span>
+      </label>
     </div>
   </header>
 
   <div id="setup-warning" class="banner" hidden>
-    Firebase isn't configured yet. Copy <code>.env.example</code> to <code>.env</code>, fill in your project values, then restart <code>npm run dev</code>.
+    Firebase isn't configured yet. Copy <code>.env.example</code> to <code>.env</code>, add your project values, then restart <code>npm run dev</code>.
+  </div>
+  <div id="device-banner" class="banner info" hidden>
+    <span id="device-banner-text"></span>
+    <button id="btn-init" class="small">Enable on-device AI</button>
+    <div id="progress" class="progress" hidden><div id="progress-bar"></div></div>
   </div>
 
   <main class="grid">
+    <!-- Left: the ticket -->
     <section class="card">
-      <h2>1. Customer message</h2>
-      <div class="samples">
-        <span>Try a sample:</span>
-        <button class="chip" data-sample="delivery">Late delivery</button>
-        <button class="chip" data-sample="billing">Double charge</button>
-        <button class="chip" data-sample="account">Locked out</button>
+      <div class="card-head">
+        <h2>Customer message</h2>
+        <div class="samples">
+          <button class="chip" data-sample="billing">Double charge</button>
+          <button class="chip" data-sample="delivery">Late delivery</button>
+          <button class="chip" data-sample="travel">Cancelled flight</button>
+          <button class="chip" data-sample="thread">Long thread</button>
+        </div>
       </div>
-      <textarea id="message" rows="9" placeholder="Paste the customer's email or chat message here…"></textarea>
-
+      <textarea id="message" rows="12" placeholder="Paste the customer's email or chat message…"></textarea>
       <div class="row">
         <label>Tone
           <select id="tone">
@@ -45,52 +56,56 @@
           </select>
         </label>
         <label>Sign as
-          <input id="agent" type="text" placeholder="AJ, Customer Support" />
+          <input id="agent" type="text" placeholder="Your name" />
         </label>
       </div>
-
-      <div class="row">
-        <label>Inference mode
-          <select id="mode">
-            <option value="PREFER_ON_DEVICE" selected>Prefer on-device (fallback to cloud)</option>
-            <option value="ONLY_ON_DEVICE">Only on-device</option>
-            <option value="PREFER_IN_CLOUD">Prefer cloud (fallback to device)</option>
-            <option value="ONLY_IN_CLOUD">Only cloud</option>
-          </select>
-        </label>
-      </div>
-
-      <div class="actions">
-        <button id="btn-init" class="secondary">Enable on-device AI</button>
-        <button id="btn-run" class="primary">Analyze &amp; draft reply</button>
-      </div>
-      <div id="progress" class="progress" hidden><div id="progress-bar"></div><span id="progress-text"></span></div>
+      <button id="btn-run" class="primary wide">Mask, triage &amp; draft reply</button>
       <p id="error" class="error" hidden></p>
     </section>
 
+    <!-- Right: what happened -->
     <section class="card">
-      <h2>2. Triage <span class="badge" id="badge-analysis" hidden></span></h2>
-      <div id="analysis" class="analysis empty">Run a message to see the summary, category, sentiment and urgency.</div>
+      <h2>How this ticket was handled</h2>
+      <ol class="steps" id="steps">
+        <li data-step="mask"><span class="num">1</span><div><b>Mask personal details</b><small>Raw text only goes to the on-device model.</small></div><span class="badge"></span></li>
+        <li data-step="route"><span class="num">2</span><div><b>Choose where to run</b><small id="route-why">Simple tickets stay on device; complex ones use the cloud, masked.</small></div><span class="badge"></span></li>
+        <li data-step="triage"><span class="num">3</span><div><b>Triage</b><small>Summary, category, sentiment, urgency.</small></div><span class="badge"></span></li>
+        <li data-step="draft"><span class="num">4</span><div><b>Draft reply</b><small>Real details are restored on this device.</small></div><span class="badge"></span></li>
+      </ol>
 
-      <h2>3. Draft reply <span class="badge" id="badge-draft" hidden></span></h2>
-      <textarea id="draft" rows="10" placeholder="The drafted reply appears here. You can edit it before copying."></textarea>
-      <div class="actions">
-        <button id="btn-copy" class="secondary">Copy reply</button>
+      <div id="triage" class="triage" hidden></div>
+
+      <div class="draft-head">
+        <h3>Draft reply</h3>
+        <button id="btn-copy" class="small">Copy</button>
       </div>
+      <textarea id="draft" rows="9" placeholder="The reply appears here. Edit it before sending."></textarea>
+      <p class="hint" id="check-hint" hidden>Items marked <mark>[CHECK: …]</mark> need you to look something up before sending.</p>
+      <ul id="notes" class="notes"></ul>
     </section>
 
+    <!-- Bottom: privacy proof -->
     <section class="card wide">
-      <h2>Where did the AI run?</h2>
-      <div class="stats">
-        <div><strong id="stat-device">0</strong><span>on this device</span></div>
-        <div><strong id="stat-cloud">0</strong><span>in the cloud</span></div>
-        <div><strong id="stat-private">–</strong><span>kept on device</span></div>
+      <div class="split">
+        <div>
+          <h2>What the cloud saw</h2>
+          <div id="cloud-saw" class="cloud-saw empty">Run a ticket to see exactly what, if anything, left this device.</div>
+        </div>
+        <div>
+          <h2>Masked message <small class="muted">(what the AI works with)</small></h2>
+          <pre id="masked" class="masked empty">Masked text appears here.</pre>
+        </div>
       </div>
-      <ol id="log" class="log"></ol>
+      <div class="stats">
+        <div><strong id="stat-tickets">0</strong><span>tickets</span></div>
+        <div><strong id="stat-device">–</strong><span>AI steps on device</span></div>
+        <div><strong id="stat-pii">0</strong><span>personal details protected</span></div>
+        <div><strong id="stat-cloud">0</strong><span>raw details sent to cloud</span></div>
+      </div>
     </section>
   </main>
 
-  <footer>Built with Firebase AI Logic hybrid inference · Chrome Prompt API (Gemini Nano) + Gemini in the cloud</footer>
+  <footer>Firebase AI Logic hybrid inference · Gemini Nano in Chrome + Gemini in the cloud · Sample messages are fictional.</footer>
   <script type="module" src="/src/main.js"></script>
 </body>
 </html>
