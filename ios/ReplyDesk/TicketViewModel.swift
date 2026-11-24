@@ -151,7 +151,7 @@ final class TicketViewModel {
             let dp = HybridAI.draftPrompt(m.masked, tone: Self.tones[tone] ?? "warm and empathetic")
             let r = try await withFallback(dp, mode: mode)
             if r.source == .cloud { cloudSaw.append(CloudCall(step: "Draft reply", prompt: dp)) }
-            draft = PrivacyMasker.unmask(r.text, vault: m.vault)
+            draft = PrivacyMasker.unmask(r.text, vault: m.vault, firstName: true)
                 .replacingOccurrences(of: "[AGENT]", with: agent.isEmpty ? "Customer Support" : agent)
             aiSteps += 1; if r.source == .device { deviceSteps += 1 }
             set("draft", .done, badge: label(r.source, r.seconds), cloud: r.source == .cloud)

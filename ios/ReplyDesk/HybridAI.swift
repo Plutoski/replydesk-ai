@@ -62,11 +62,16 @@ struct HybridAI {
     }
 
     static func draftPrompt(_ masked: String, tone: String) -> String {
-        "You are a customer service representative replying to the customer message below.\n" +
-        "Tone: \(tone). Acknowledge the issue, say clearly what happens next, and keep it under 140 words.\n" +
-        "Text in square brackets like [NAME_1] or [ORDER_1] is a privacy placeholder: copy placeholders exactly, never guess the real value.\n" +
-        "Do not invent refunds, dates or policies that are not in the message; write [CHECK: ...] where the agent must look something up.\n" +
-        "End the reply with a sign-off line followed by [AGENT] on its own line.\n\n" +
+        "You are a customer service agent. Write a short reply to the customer message below.\n" +
+        "Rules:\n" +
+        "- Tone: \(tone).\n" +
+        "- At most 3 short paragraphs and under 100 words. Do not ramble.\n" +
+        "- Start with \"Hi [NAME_1],\" if the message has [NAME_1]; otherwise \"Hi,\".\n" +
+        "- Acknowledge the problem in one sentence, then say clearly what happens next.\n" +
+        "- Never repeat the customer's phone number, email, card or address back to them.\n" +
+        "- Square-bracket tags like [ORDER_1] are privacy placeholders: copy them exactly, never guess real values.\n" +
+        "- Never invent refunds, timeframes, dates or policies. Where the agent must look something up, write [CHECK: what to check].\n" +
+        "- End with \"Kind regards,\" and then [AGENT] on its own line.\n\n" +
         "Customer message:\n" + masked
     }
 

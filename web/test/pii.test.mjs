@@ -37,6 +37,9 @@ test("unmask restores values; cards only as last four digits", () => {
   assert.equal(unmask("Hi [NAME_1], refund to [CARD_1].", vault), "Hi Sarah Jones, refund to card ending in 1111.");
   assert.equal(unmask("your card [CARD_1]", vault), "your card ending in 1111");
   assert.equal(unmask("[PHONE_9]", vault), "[CHECK: phone]");
+  assert.equal(unmask("Hi [NAME_1],", vault, { firstName: true }), "Hi Sarah,");
+  assert.equal(unmask("within [TIME_FRAME].", vault), "within [CHECK: time frame].");
+  assert.equal(unmask("[CHECK: refund date]\n[AGENT]", vault), "[CHECK: refund date]\n[AGENT]");
 });
 
 test("routing: simple → device, complex → cloud, local-only → device only", () => {

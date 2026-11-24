@@ -107,14 +107,20 @@ export function mask(text, extra = {}) {
   return { masked, vault, counts: finalCounts };
 }
 
-/** Put real values back, on this device. Card numbers come back only as their last four digits. */
-export function unmask(text, vault) {
-  const out = text.replace(/\[\s*([A-Z]+)_(\d+)\s*\]/g, (m, type, n) => {
+/**
+ * Put real values back, on this device. Card numbers come back only as their last four digits.
+ * firstName: greet people by first name ("Hi Sarah", not "Hi Sarah Jones").
+ */
+export function unmask(text, vault, { firstName = false } = {}) {
+  let out = text.replace(/\[\s*([A-Z]+)_(\d+)\s*\]/g, (m, type, n) => {
     const entry = vault[`[${type}_${n}]`];
     if (!entry) return `[CHECK: ${type.toLowerCase()}]`; // the AI used a tag that isn't in this message
     if (entry.type === "CARD") return `card ending in ${entry.value.replace(/\D/g, "").slice(-4)}`;
+    if (entry.type === "NAME" && firstName) return entry.value.split(" ")[0];
     return entry.value;
   });
+  // Tags the AI invented, like [TIME_FRAME] or [REFUND AMOUNT], become checks for the agent.
+  out = out.replace(/\[(?!CHECK:|AGENT\])([A-Z][A-Z _]{2,})\]/g, (m, words) => `[CHECK: ${words.replace(/_/g, " ").toLowerCase().trim()}]`);
   return out.replace(/\bcard\s+card ending in/gi, "card ending in");
 }
 

@@ -149,13 +149,21 @@ nonisolated enum PrivacyMasker {
     }
 
     /// Put real values back on the device. Cards come back only as their last four digits.
-    static func unmask(_ text: String, vault: [String: Entry]) -> String {
-        let out = replace(text, rx(#"\[\s*([A-Z]+)_(\d+)\s*\]"#)) { m, ns in
+    /// firstName: greet people by first name ("Hi Sarah", not "Hi Sarah Jones").
+    static func unmask(_ text: String, vault: [String: Entry], firstName: Bool = false) -> String {
+        var out = replace(text, rx(#"\[\s*([A-Z]+)_(\d+)\s*\]"#)) { m, ns in
             let type = ns.substring(with: m.range(at: 1))
             let key = "[\(type)_\(ns.substring(with: m.range(at: 2)))]"
             guard let e = vault[key] else { return "[CHECK: \(type.lowercased())]" }
             if e.type == "CARD" { return "card ending in \(String(e.value.filter(\.isNumber).suffix(4)))" }
+            if e.type == "NAME" && firstName { return String(e.value.split(separator: " ").first ?? Substring(e.value)) }
             return e.value
+        }
+        // Tags the AI invented, like [TIME_FRAME], become checks for the agent.
+        out = replace(out, rx(#"\[(?!CHECK:|AGENT\])([A-Z][A-Z _]{2,})\]"#)) { m, ns in
+            let words = ns.substring(with: m.range(at: 1)).replacingOccurrences(of: "_", with: " ").lowercased()
+                .trimmingCharacters(in: .whitespaces)
+            return "[CHECK: \(words)]"
         }
         return out.replacingOccurrences(of: "card card ending in", with: "card ending in", options: .caseInsensitive)
     }
