@@ -3,13 +3,14 @@ web/node_modules
 web/dist
 web/.env
 web/.firebase
+.firebase
+.firebaserc
 
-# Android
-android/.gradle
-android/.idea
-android/local.properties
-android/build
-android/app/build
-android/app/google-services.json
-*.iml
+# iOS
+ios/**/GoogleService-Info.plist
+ios/**/xcuserdata/
+ios/**/*.xcuserstate
+ios/build/
+DerivedData/
+
 .DS_Store

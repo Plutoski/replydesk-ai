@@ -1,38 +1,40 @@
-# ReplyDesk: hybrid AI for the customer-service front line
+# ReplyDesk: AI replies that keep customer data on the agent's device
 
-## The problem
-I work as a customer service representative. Each day I read messages from upset customers and write replies that must be quick, calm and accurate. AI drafting helps, but customer messages carry personal data, and sending every one to a cloud model raises privacy and cost concerns. Agents also don't work on identical machines. Some have new laptops, some use older PCs, and many work from their phones.
+## Inspiration
+I'm a customer service representative. I've done the job in London and now in Calgary, and every shift I read messages full of personal details: names, card numbers, addresses and booking references. AI could cut my reply time in half, but pasting customers' details into a cloud chatbot is exactly what support teams are trained not to do. I wanted an assistant I'd actually be allowed to use at work.
 
-## What ReplyDesk does
-Paste in a customer message and ReplyDesk:
-- **triages it**: a one-sentence summary plus category, sentiment and urgency, so you can see at a glance which tickets are urgent
-- **drafts a reply** in a chosen tone, signed with your name, using [placeholders] where it shouldn't invent facts such as order numbers or refunds
-- **shows where the AI ran** for each step (*On this device* or *Cloud · Gemini*), with timing and a running "kept on device" percentage
+## What it does
+Paste a customer message and ReplyDesk:
+1. **Masks personal details on the device.** Gemini Nano (Chrome) or Apple's on-device model finds names and addresses, and local rules catch emails, phone numbers, card numbers, order IDs and postcodes. "Sarah Jones" becomes `[NAME_1]`.
+2. **Chooses where to run.** Short, simple tickets stay on the device. Long threads or tickets with many questions go to Gemini in the cloud, as masked text only. A **Local only** switch keeps everything on the device for sensitive queues.
+3. **Triages and drafts a reply** in the agent's chosen tone.
+4. **Restores the real details on the device.** Card numbers come back only as "card ending in 1111", the way agents are trained to write them.
 
-## How it uses Firebase AI Logic hybrid inference
-ReplyDesk runs on **two platforms**, the **web (Chrome desktop)** and **Android**, both built on the Firebase AI Logic hybrid SDK:
-- **`PREFER_ON_DEVICE`** by default. Gemini Nano runs locally (Chrome Prompt API on the web, ML Kit / AICore on Android). If the device can't run it, the SDK switches to Gemini in the cloud with no extra code.
-- All **four inference modes** can be switched in the app, so judges can watch the routing change live.
-- **On-device model lifecycle:** status check, download started by the user with a progress bar, and warm-up on Android.
-- **Structured JSON output** for triage, with the same schema on device and in the cloud, so the UI doesn't care which path answered.
-- **Streaming** for reply drafts.
-- **`inferenceSource`** on every response drives the badges and the "kept on device" stat.
-- **App Check** protects the cloud path (debug provider for development, reCAPTCHA Enterprise / Play Integrity for release).
+The **"What the cloud saw"** panel shows either "✓ Nothing left this device" or the exact masked text that was sent.
 
-## Why hybrid is the right fit
-- **Privacy:** when Nano is available, the customer's message never leaves the agent's machine.
-- **Cost:** routine triage and short replies cost nothing on device, and the cloud handles only what the device can't.
-- **Resilience:** it keeps working offline, for example on a flaky connection or when the office network goes down.
-- **Reach:** every agent gets the feature, whatever browser or phone they use.
+## How we used Firebase AI Logic
+- The **hybrid inference SDK** on **Web** (Gemini Nano in Chrome) and **iOS** (Apple Foundation Models), with Gemini as the cloud model on both.
+- **Different inference modes for different jobs:** `ONLY_ON_DEVICE` for masking, because it sees raw data; `PREFER_ON_DEVICE` for simple tickets, because they're fast, free and work offline; `PREFER_IN_CLOUD` for complex tickets, where quality matters and the text is already masked.
+- The **inference source** on each response powers the on-device or cloud badges and the "What the cloud saw" panel.
+- **Structured JSON output** for entity extraction and triage, on device and in the cloud.
+- **Failure handling:** a failed cloud step retries on the device, and if no AI path is available, the app writes a safe holding reply.
+- **App Check** protects the Gemini API on both platforms.
+
+## Value
+- **Privacy and compliance:** raw customer data never reaches the cloud.
+- **Cost:** most everyday tickets run on the device for free.
+- **Resilience:** it works offline, and on devices without an on-device model, with masked data.
+- **Agent-friendly:** placeholders like `[CHECK: refund timeframe]` flag anything the agent must verify, so the AI never invents policies.
 
 ## Challenges
-- The two platforms expose the hybrid SDK differently. The web starts the model through `initializeDeviceModel()` on a user gesture, while Android uses `onDeviceExtension.download()`. I wrapped both behind the same "Enable on-device AI" action.
-- On-device models have tighter limits (shorter outputs, single-turn only). I kept prompts single-turn, capped replies at about 140 words, and told the model to use placeholders rather than invent details.
+- On-device models are small, so I treated hybrid as a routing problem: send each job where it fits best.
+- Masking had to work even without an on-device model. Automated tests caught a real leak (a bare sign-off name), which led to an extra rule.
+- Chrome and iOS expose the SDK differently. The masking, routing and prompts are identical on both, so the apps behave the same.
+
+## What I built during the submission period
+Everything in this repo was built between November 24 and November 30, 2026: the privacy router, the web app, the iOS app, the automated tests and the docs. I used an AI coding assistant (Claude) to help write and test the code, as the rules allow.
 
 ## What's next
-- An iOS version using Apple Foundation Models through the same SDK
-- A "never send to cloud" policy switch for sensitive queues (`ONLY_ON_DEVICE`)
-- Company tone guides and canned policies added to the prompt
-- Ticketing-system integrations (Zendesk, Freshdesk) as a browser extension
-
-**Built with:** Firebase AI Logic (hybrid inference), Gemini Nano, Gemini 3.5 Flash-Lite, Firebase App Check, Firebase Hosting, Vite, Kotlin and Jetpack Compose.
+- A Chrome side-panel extension that sits next to helpdesk tools like Zendesk
+- Company tone guides and approved policy snippets added to the prompt
+- Team analytics showing how much customer data stayed on device each week
