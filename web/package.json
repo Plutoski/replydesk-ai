@@ -1,13 +1,14 @@
 {
   "name": "replydesk-web",
   "version": "1.0.0",
-  "description": "",
+  "description": "Private AI replies for customer service: Firebase AI Logic hybrid inference with on-device masking",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
     "deploy": "vite build && firebase deploy --only hosting",
-    "test": "node --test test/pii.test.mjs",
+    "test": "node --test test/pii.test.mjs test/flow.test.mjs",
+    "eval": "node test/privacy-eval.mjs",
     "dev:mock": "vite --config test/vite.mock.config.js"
   },
   "dependencies": {

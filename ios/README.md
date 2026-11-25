@@ -2,7 +2,7 @@
 
 SwiftUI app using **Firebase AI Logic hybrid inference** with **Apple Foundation Models** on the iPhone and **Gemini** in the cloud.
 
-Requirements: a Mac with **Xcode 26**, an iPhone with **Apple Intelligence** turned on (iPhone 15 Pro or newer, including iPhone Air), and a free Apple ID. No paid Apple Developer account is needed.
+Requirements: a Mac with **Xcode 27.2 or newer** (the project file uses the newer format), an iPhone with **Apple Intelligence** turned on (iPhone 15 Pro or newer, including iPhone Air), and a free Apple ID. No paid Apple Developer account is needed.
 
 ## 1. Open the project
 

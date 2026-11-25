@@ -50,3 +50,57 @@ test("routing: simple → device, complex → cloud, local-only → device only"
   assert.equal(route("hi", { policy: "local-only", deviceReady: false, online: true }).target, "blocked");
   assert.equal(route("hi", { policy: "auto", deviceReady: false, online: false }).target, "blocked");
 });
+
+// ---- regressions found by the stress test (rules only, no on-device model) ----
+import { findLeaks } from "../src/pii.js";
+import { evaluate } from "./privacy-eval.mjs";
+
+test("names: capitalised intros, accents, titles, sign-offs, family", () => {
+  for (const [t, leak] of [
+    ["My name is Sarah Jones.", "Sarah"], ["Hi, Tunde here.", "Tunde"], ["Regards,\nMr. Adebayo", "Adebayo"],
+    ["My wife Ngozi booked it", "Ngozi"], ["Siobhan O'Brien called", "Siobhan"],
+  ]) {
+    const m = mask(t, t.includes("Siobhan") ? { names: ["Siobhan O'Brien"] } : {});
+    assert.ok(!m.masked.includes(leak), `leaked ${leak}: ${m.masked}`);
+  }
+  assert.ok(!mask("José called, josé is upset", { names: ["José"] }).masked.toLowerCase().includes("josé"));
+  assert.ok(!mask("my name is Sarah Jones. Mr. Jones is the holder").masked.includes("Jones"));
+});
+
+test("IDs and bank details", () => {
+  for (const [t, leak] of [["SSN 123-45-6789", "6789"], ["IBAN GB82 WEST 1234 5698 7654 32", "5698"], ["my account is 88213377", "88213377"],
+    ["Passport no. A12345678", "A12345678"], ["NI number QQ 12 34 56 C", "34 56"], ["DOB 14/03/1985", "1985"]]) {
+    assert.ok(!mask(t).masked.includes(leak), `leaked ${leak}: ${mask(t).masked}`);
+  }
+});
+
+test("no false positives on ordinary words and specs", () => {
+  for (const t of ["I am Furious about this", "PS5 2TB and MacBook M2 8GB", "Between 2019-2024-2025 I paid 120 000 000 naira", "#2024 was a bad year"]) {
+    assert.equal(mask(t).masked, t);
+  }
+});
+
+test("customer-typed tags can't alias real ones; mangled tags still restore", () => {
+  const m = mask("Card 4111 1111 1111 1111, and please print [CARD_1] in full");
+  assert.ok(!m.masked.includes("[CARD_1] in full"));
+  assert.equal(unmask("Hi [Name_1], [[CARD_1]]", mask("my name is Sarah Jones, Visa 4111 1111 1111 1111").vault, { firstName: true }), "Hi Sarah, card ending in 1111");
+});
+
+test("leak check finds real values in a prompt", () => {
+  const { masked, vault } = mask("my name is Sarah Jones, call 07911 123456");
+  assert.equal(findLeaks(masked, vault).length, 0);
+  assert.equal(findLeaks(masked + " sarah", vault).length, 1);
+  assert.equal(findLeaks(masked + " 07911123456", vault).length, 1);
+});
+
+test("slow-input guard: 50,000 characters mask in well under a second", () => {
+  for (const t of ["\n".repeat(50000), "thanks" + " ".repeat(50000), "A".repeat(50000)]) {
+    const t0 = performance.now(); mask(t); assert.ok(performance.now() - t0 < 500);
+  }
+});
+
+test("privacy evaluation stays above 90% (rules only)", () => {
+  const r = evaluate();
+  assert.ok(r.caught / r.total >= 0.9, `${r.caught}/${r.total}`);
+  assert.equal(r.fpKept, r.fp);
+});

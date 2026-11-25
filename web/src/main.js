@@ -1,4 +1,4 @@
-import { initFirebase, isConfigured, deviceAvailability, prepareDevice, runTicket, holdingReply } from "./ai.js";
+import { initFirebase, isConfigured, deviceAvailability, prepareDevice, runTicket, holdingReply, MAX_CHARS } from "./ai.js";
 
 const $ = (id) => document.getElementById(id);
 
@@ -19,7 +19,7 @@ const SAMPLES = {
     "It has been more than 48 hours.\n\nPriya Patel",
 };
 
-const state = { deviceReady: false, tickets: 0, deviceSteps: 0, aiSteps: 0, pii: 0 };
+const state = { deviceReady: false, busy: false, tickets: 0, localSteps: 0, steps: 0, pii: 0, checked: 0, rawSent: 0 };
 const ready = initFirebase();
 if (!isConfigured) $("setup-warning").hidden = false;
 
@@ -50,12 +50,13 @@ async function updateDevice() {
   const banner = $("device-banner");
   if (a === "downloadable" || a === "downloading") {
     banner.hidden = false;
+    $("btn-init").hidden = false;
     $("device-banner-text").textContent = "Download Gemini Nano (about 4 GB, once) so customer messages can be processed on this computer.";
   } else if (a === "unavailable" || a === "unsupported") {
     banner.hidden = false;
     $("btn-init").hidden = true;
     $("device-banner-text").textContent =
-      "This browser or computer can't run the on-device model, so ReplyDesk masks details with pattern rules and uses Gemini in the cloud. For full on-device privacy, use Chrome on a supported desktop.";
+      "This browser can't run the on-device model. ReplyDesk will mask details with pattern rules and ask you before any masked text goes to Gemini in the cloud. For full on-device privacy, use desktop Chrome with Gemini Nano.";
   } else {
     banner.hidden = true;
   }
@@ -63,6 +64,9 @@ async function updateDevice() {
 updateDevice();
 
 $("btn-init").addEventListener("click", async () => {
+  const b = $("btn-init");
+  if (b.disabled) return;
+  b.disabled = true;
   $("progress").hidden = false;
   try {
     await prepareDevice((p) => ($("progress-bar").style.width = Math.round(p * 100) + "%"));
@@ -70,6 +74,7 @@ $("btn-init").addEventListener("click", async () => {
     showError(e);
   }
   $("progress").hidden = true;
+  b.disabled = false;
   updateDevice();
 });
 
@@ -78,13 +83,15 @@ function showError(err) {
   const el = $("error");
   if (!err) return (el.hidden = true);
   let msg = err?.message || String(err);
-  if (/app.?check|attestation|PERMISSION_DENIED|403/i.test(msg))
-    msg += " → App Check: register the debug token from the console in Firebase (Security → App Check → Manage debug tokens).";
+  if (/app.?check|attestation|PERMISSION_DENIED|403/i.test(msg)) {
+    console.warn("[ReplyDesk] App Check rejected the request. On localhost, register the debug token printed in this console (Firebase console → App Check → Manage debug tokens).");
+    msg = "The cloud request was rejected by App Check. A safe holding reply was written instead.";
+  }
   el.textContent = msg;
   el.hidden = false;
 }
 
-const BADGE = { device: ["On device", "device"], cloud: ["Cloud · Gemini", "cloud"], "local rules": ["Local rules", "device"], unknown: ["Unknown", "muted"] };
+const BADGE = { device: ["On device", "device"], cloud: ["Cloud · Gemini", "cloud"], "local rules": ["On device · rules", "device"], unknown: ["Unknown", "muted"] };
 
 function setStep(step, { state: s, source, ms, label }) {
   const li = document.querySelector(`[data-step="${step}"]`);
@@ -105,6 +112,13 @@ function resetSteps() {
   $("triage").hidden = true;
   $("notes").innerHTML = "";
   $("check-hint").hidden = true;
+  setReceipt("Working…", "");
+}
+
+function setReceipt(html, cls) {
+  const el = $("receipt");
+  el.className = "receipt " + cls;
+  el.innerHTML = html;
 }
 
 function highlightTokens(text) {
@@ -115,10 +129,19 @@ function highlightTokens(text) {
 function renderTriage({ summary, category, sentiment, urgency }) {
   const el = $("triage");
   el.hidden = false;
-  el.innerHTML = `<p></p><div class="tags"><span class="tag"></span><span class="tag s-${sentiment}"></span><span class="tag u-${urgency}"></span></div>`;
-  el.querySelector("p").textContent = summary;
-  const [c, s, u] = el.querySelectorAll(".tag");
-  c.textContent = category; s.textContent = sentiment; u.textContent = `${urgency} urgency`;
+  el.replaceChildren();
+  const p = document.createElement("p");
+  p.textContent = summary;
+  const tags = document.createElement("div");
+  tags.className = "tags";
+  for (const [text, cls] of [[category, ""], [sentiment, `s-${sentiment}`], [`${urgency} urgency`, `u-${urgency}`]]) {
+    const t = document.createElement("span");
+    t.className = "tag";
+    if (cls) t.classList.add(cls);
+    t.textContent = text;
+    tags.append(t);
+  }
+  el.append(p, tags);
 }
 
 function renderCloudSaw(list, policyLocal) {
@@ -129,41 +152,88 @@ function renderCloudSaw(list, policyLocal) {
     return;
   }
   el.innerHTML = list
-    .map((c) => `<details open><summary>${c.step}: masked prompt sent to Gemini</summary><pre>${highlightTokens(c.prompt)}</pre></details>`)
+    .map((c, i) => `<details${i === 0 ? " open" : ""}><summary>${c.step}: masked prompt sent to Gemini</summary><pre>${highlightTokens(c.prompt)}</pre></details>`)
     .join("");
 }
 
-function updateStats(counts) {
-  state.tickets++;
-  state.pii += Object.values(counts).reduce((a, b) => a + b, 0);
-  $("stat-tickets").textContent = state.tickets;
-  $("stat-pii").textContent = state.pii;
-  $("stat-device").textContent = state.aiSteps ? Math.round((state.deviceSteps / state.aiSteps) * 100) + "%" : "–";
+function renderReceipt(r) {
+  if (!r.prompts) {
+    setReceipt(`✓ Cloud saw nothing. Every step ran on this device. <a href="#cloud-saw">Details</a>`, "local");
+  } else {
+    setReceipt(
+      `☁ Cloud saw ${r.prompts} masked prompt${r.prompts > 1 ? "s" : ""} · ${r.tags} tag${r.tags === 1 ? "" : "s"} · ` +
+      `${r.rawSent} real details (${r.checked} prompt${r.checked > 1 ? "s" : ""} checked before sending). <a href="#cloud-saw">See exactly what</a>`,
+      "cloud"
+    );
+  }
 }
 
-// ---------- samples ----------
+function updateStats(counts, receipt) {
+  state.tickets++;
+  state.pii += Object.values(counts).reduce((a, b) => a + b, 0);
+  if (receipt) { state.checked += receipt.checked; state.rawSent += receipt.rawSent; }
+  $("stat-tickets").textContent = state.tickets;
+  $("stat-pii").textContent = state.pii;
+  $("stat-device").textContent = state.steps ? Math.round((state.localSteps / state.steps) * 100) + "%" : "–";
+  $("stat-cloud").textContent = state.rawSent;
+  $("stat-cloud-label").textContent = `raw details sent to the cloud (${state.checked} cloud prompt${state.checked === 1 ? "" : "s"} checked)`;
+}
+
+// The agent sees the masked text and decides. Resolves true (send) or false (keep on device).
+function confirmCloud(masked, why) {
+  return new Promise((resolve) => {
+    $("confirm-why").textContent = why;
+    $("confirm-text").innerHTML = highlightTokens(masked);
+    $("confirm").hidden = false;
+    $("confirm").scrollIntoView({ behavior: "smooth", block: "center" });
+    $("btn-send").focus();
+    const done = (v) => { $("confirm").hidden = true; $("btn-send").onclick = $("btn-keep").onclick = null; resolve(v); };
+    $("btn-send").onclick = () => done(true);
+    $("btn-keep").onclick = () => done(false);
+  });
+}
+
+// ---------- samples and input ----------
 document.querySelectorAll("[data-sample]").forEach((b) =>
-  b.addEventListener("click", () => ($("message").value = SAMPLES[b.dataset.sample]))
+  b.addEventListener("click", () => {
+    $("message").value = SAMPLES[b.dataset.sample];
+    document.querySelectorAll("[data-sample]").forEach((x) => x.setAttribute("aria-pressed", String(x === b)));
+    updateCount();
+  })
 );
+function updateCount() { $("char-count").textContent = $("message").value.length.toLocaleString(); }
+$("message").addEventListener("input", updateCount);
+$("message").addEventListener("keydown", (e) => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) { e.preventDefault(); run(); } });
 
 // ---------- run ----------
-$("btn-run").addEventListener("click", async () => {
+$("btn-run").addEventListener("click", run);
+
+async function run() {
+  if (state.busy) return; // one ticket at a time
+  const btn = $("btn-run");
   if (!ready) return showError(new Error("Configure Firebase first (see the banner)."));
   const raw = $("message").value.trim();
-  if (!raw) return showError(new Error("Paste a customer message first."));
-  showError(null);
-  resetSteps();
-  await updateDevice();
+  if (!raw) return showError(new Error("Paste a customer message first, or pick a sample above."));
+  if (raw.length > MAX_CHARS) return showError(new Error(`That message is over ${MAX_CHARS.toLocaleString()} characters. Paste the latest part of the thread.`));
 
-  const btn = $("btn-run");
+  state.busy = true;
   btn.disabled = true;
   btn.textContent = "Working…";
+  showError(null);
+  resetSteps();
   $("draft").value = "";
+  $("draft").readOnly = true;
+  $("draft-status").textContent = "";
+  if (innerWidth < 900) $("steps").scrollIntoView({ behavior: "smooth", block: "start" });
+  await updateDevice();
+
   let counts = {};
+  let receipt = null;
+  const sent = []; // cloud prompts, recorded as they happen
   const policyLocal = $("policy").checked;
 
   try {
-    await runTicket(
+    const out = await runTicket(
       raw,
       {
         policy: policyLocal ? "local-only" : "auto",
@@ -171,13 +241,15 @@ $("btn-run").addEventListener("click", async () => {
         agent: $("agent").value.trim(),
         online: navigator.onLine,
         deviceReady: state.deviceReady,
+        drill: $("drill").value,
+        confirmCloud,
       },
       (e) => {
         if (e.type === "step") {
           setStep(e.step, e);
-          if (e.state === "done" && e.step !== "mask") {
-            state.aiSteps++;
-            if (e.source === "device") state.deviceSteps++;
+          if (e.state === "done") {
+            state.steps++;
+            if (e.source === "device" || e.source === "local rules") state.localSteps++;
           }
           if (e.step === "mask" && e.state === "done") {
             counts = e.counts;
@@ -192,32 +264,43 @@ $("btn-run").addEventListener("click", async () => {
         } else if (e.type === "route") {
           const r = e.route;
           $("route-why").textContent = r.why;
-          setStep("route", { state: "done", label: r.target === "device" ? "Device first" : r.target === "cloud" ? "Cloud first" : "Blocked", source: r.target === "cloud" ? "cloud" : r.target === "device" ? "device" : "muted" });
+          setStep("route", { state: "done", label: r.target === "device" ? "Device" : r.target === "cloud" ? "Cloud" : "Blocked", source: r.target === "cloud" ? "cloud" : r.target === "device" ? "device" : "muted" });
         } else if (e.type === "draft") {
           $("draft").value = e.text;
+        } else if (e.type === "cloud") {
+          sent.push({ step: e.step, prompt: e.prompt });
         } else if (e.type === "note") {
           const li = document.createElement("li");
           li.textContent = e.text;
           $("notes").append(li);
         } else if (e.type === "done") {
           renderCloudSaw(e.cloudSaw, policyLocal);
+          renderReceipt(e.receipt);
         }
       }
     );
-    updateStats(counts);
+    receipt = out.receipt;
+    $("draft-status").textContent = "Draft ready.";
   } catch (err) {
-    showError(err);
+    if (!err?.kept) showError(err);
     if (!$("draft").value) {
       $("draft").value = holdingReply($("agent").value.trim());
       const li = document.createElement("li");
-      li.textContent = "No AI path was available, so a safe holding reply was written locally instead.";
+      li.textContent = "No AI path was used, so a safe holding reply was written on this device instead.";
       $("notes").append(li);
     }
+    renderCloudSaw(sent, policyLocal);
+    if (sent.length) setReceipt(`☁ Cloud saw ${sent.length} masked prompt${sent.length > 1 ? "s" : ""} before the error, and no real details. A holding reply was written on this device. <a href="#cloud-saw">See exactly what</a>`, "held");
+    else setReceipt("✓ Cloud saw nothing. A holding reply was written on this device.", "held");
+    $("draft-status").textContent = "Holding reply ready.";
   } finally {
+    updateStats(counts, receipt);
+    $("draft").readOnly = false;
     btn.disabled = false;
     btn.textContent = "Mask, triage & draft reply";
+    state.busy = false;
   }
-});
+}
 
 $("btn-copy").addEventListener("click", async () => {
   try { await navigator.clipboard.writeText($("draft").value); $("btn-copy").textContent = "Copied ✓"; }
