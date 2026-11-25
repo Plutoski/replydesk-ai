@@ -245,15 +245,20 @@ const TYPES = "NAME|EMAIL|PHONE|CARD|ORDER|ADDRESS|POSTCODE|ID|ACCOUNT";
  * firstName: greet people by first name ("Hi Sarah", not "Hi Sarah Jones").
  */
 // Plain words for a detail, used in summaries where the real value isn't needed.
-const DESCRIBE = { EMAIL: "‹email›", PHONE: "‹phone number›", CARD: "‹card›", ORDER: "‹order no.›", ADDRESS: "‹address›",
+const DESCRIBE = { EMAIL: "‹email›", PHONE: "‹phone number›", CARD: "‹card›", ORDER: "‹reference›", ADDRESS: "‹address›",
   POSTCODE: "‹postcode›", ID: "‹account no.›", ACCOUNT: "‹bank account›", DOB: "‹date of birth›" };
 
-export function unmask(text, vault, { firstName = false, describe = false } = {}) {
+// In a reply to the customer, these details are referred to, never repeated back.
+const IN_REPLY = { EMAIL: "your email address", PHONE: "your phone number", ADDRESS: "your address", POSTCODE: "your postcode",
+  ID: "your account", ACCOUNT: "your bank account", DOB: "your date of birth" };
+
+export function unmask(text, vault, { firstName = false, describe = false, reply = false } = {}) {
   const restore = (type, n, poss = "") => {
     const T = type.toUpperCase();
     const entry = vault[`[${T}_${n}]`];
     if (!entry) return `[CHECK: ${T.toLowerCase()}]`; // the AI used a tag that isn't in this message
     if (describe && entry.type !== "NAME") return DESCRIBE[entry.type] || "‹detail›";
+    if (reply && IN_REPLY[entry.type]) return IN_REPLY[entry.type] + poss;
     const digits = entry.value.replace(/\D/g, "");
     if (entry.type === "CARD") return `card ending in ${digits.slice(-4)}` + poss;
     if (entry.type === "NAME") return (firstName ? entry.value.split(" ")[0] : entry.value) + poss;
@@ -267,6 +272,9 @@ export function unmask(text, vault, { firstName = false, describe = false } = {}
     .replace(new RegExp(`\\b(${TYPES})_(\\d+)\\b`, "g"), (m, t, n) => restore(t, n));
   // Tags the AI invented, like [TIME_FRAME] or [REFUND AMOUNT], become checks for the agent.
   out = out.replace(/\[(?!CHECK:|AGENT\])([A-Za-z][A-Za-z _-]{2,})\]/g, (m, words) => `[CHECK: ${words.replace(/[_-]/g, " ").toLowerCase().trim()}]`);
+  // A check inside a check reads badly: "[CHECK: logs for your [CHECK: email address]]" becomes one check.
+  for (let i = 0; i < 3; i++) out = out.replace(/\[CHECK: ([^\[\]]*)\[CHECK: ([^\[\]]*)\]([^\[\]]*)\]/g, "[CHECK: $1$2$3]");
+  out = out.replace(/\byour (email address|phone number|address|postcode|account|bank account|date of birth) \1\b/gi, "your $1");
   return out.replace(/\bcard\s+card ending in/gi, "card ending in").replace(/\b(?:ending in\s+)+ending in/gi, "ending in");
 }
 

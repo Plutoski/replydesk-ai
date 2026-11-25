@@ -110,3 +110,13 @@ test("summaries describe details instead of showing them", () => {
   assert.equal(unmask("[NAME_1] wants a call on [PHONE_1] at [ADDRESS_1].", vault, { firstName: true, describe: true }),
     "Sarah wants a call on ‹phone number› at ‹address›.");
 });
+
+test("replies never repeat contact or ID details back to the customer", () => {
+  const { vault } = mask("my name is Sarah Jones, email sarah@example.com, call 07911 123456, Visa 4111 1111 1111 1111, order #A7731920");
+  const out = unmask("Hi [NAME_1], we'll email [EMAIL_1] or call [PHONE_1] about [CARD_1] and order [ORDER_1].", vault, { firstName: true, reply: true });
+  assert.equal(out, "Hi Sarah, we'll email your email address or call your phone number about card ending in 1111 and order A7731920.");
+});
+
+test("a check inside a check becomes one check", () => {
+  assert.equal(unmask("Look at [CHECK: logs for your [EMAIL ADDRESS] account]", {}), "Look at [CHECK: logs for your email address account]");
+});

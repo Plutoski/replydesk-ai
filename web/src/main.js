@@ -112,7 +112,13 @@ function resetSteps() {
   $("triage").hidden = true;
   $("notes").innerHTML = "";
   $("check-hint").hidden = true;
-  setReceipt("Working…", "");
+  setReceipt(state.tickets === 0 && state.deviceReady
+    ? "Working… The first run loads the on-device model, so it can take 10–15 seconds."
+    : "Working…", "");
+  $("cloud-saw").classList.add("empty");
+  $("cloud-saw").textContent = "Running this ticket…";
+  $("masked").classList.add("empty");
+  $("masked").textContent = "Masking…";
 }
 
 function setReceipt(html, cls) {
@@ -176,7 +182,7 @@ function updateStats(counts, receipt) {
   $("stat-pii").textContent = state.pii;
   $("stat-device").textContent = state.steps ? Math.round((state.localSteps / state.steps) * 100) + "%" : "–";
   $("stat-cloud").textContent = state.rawSent;
-  $("stat-cloud-label").textContent = `raw details sent to the cloud (${state.checked} cloud prompt${state.checked === 1 ? "" : "s"} checked)`;
+  $("stat-cloud-label").textContent = `raw details sent to the cloud (${state.checked} prompt${state.checked === 1 ? "" : "s"} leak-checked)`;
 }
 
 // The agent sees the masked text and decides. Resolves true (send) or false (keep on device).
@@ -201,7 +207,12 @@ document.querySelectorAll("[data-sample]").forEach((b) =>
     updateCount();
   })
 );
-function updateCount() { $("char-count").textContent = $("message").value.length.toLocaleString(); }
+function updateCount() {
+  const n = $("message").value.length;
+  $("char-count").textContent = n.toLocaleString();
+  $("char-count").parentElement.classList.toggle("at-limit", n >= MAX_CHARS);
+  $("char-count").parentElement.title = n >= MAX_CHARS ? "Limit reached: anything after 8,000 characters was cut. Paste the latest part of the thread." : "";
+}
 $("message").addEventListener("input", updateCount);
 $("message").addEventListener("keydown", (e) => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) { e.preventDefault(); run(); } });
 
@@ -269,6 +280,9 @@ async function run() {
           $("draft").value = e.text;
         } else if (e.type === "fallback") {
           setStep("route", { state: "done", label: e.to === "device" ? "Cloud → device" : "Device → cloud", source: e.to === "device" ? "device" : "cloud" });
+          $("route-why").textContent = e.to === "device"
+            ? "Planned for Gemini in the cloud, but the cloud didn't answer, so this device handled it instead."
+            : "Planned for this device, but the on-device model couldn't do it, so Gemini handled it, using masked text only.";
         } else if (e.type === "cloud") {
           sent.push({ step: e.step, prompt: e.prompt });
         } else if (e.type === "note") {

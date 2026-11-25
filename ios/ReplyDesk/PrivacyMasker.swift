@@ -307,14 +307,20 @@ nonisolated enum PrivacyMasker {
     /// and so does any other long number (12+ digits) such as an account or ID.
     /// firstName: greet people by first name ("Hi Sarah", not "Hi Sarah Jones").
     /// Plain words for a detail, used in summaries where the real value isn't needed.
-    private static let describeWords = ["EMAIL": "‹email›", "PHONE": "‹phone number›", "CARD": "‹card›", "ORDER": "‹order no.›",
+    private static let describeWords = ["EMAIL": "‹email›", "PHONE": "‹phone number›", "CARD": "‹card›", "ORDER": "‹reference›",
         "ADDRESS": "‹address›", "POSTCODE": "‹postcode›", "ID": "‹account no.›", "ACCOUNT": "‹bank account›", "DOB": "‹date of birth›"]
 
-    static func unmask(_ text: String, vault: [String: Entry], firstName: Bool = false, describe: Bool = false) -> String {
+    /// In a reply to the customer, these details are referred to, never repeated back.
+    private static let inReply = ["EMAIL": "your email address", "PHONE": "your phone number", "ADDRESS": "your address", "POSTCODE": "your postcode",
+        "ID": "your account", "ACCOUNT": "your bank account", "DOB": "your date of birth"]
+    nonisolated(unsafe) private static let nestedCheck = rx(#"\[CHECK: ([^\[\]]*)\[CHECK: ([^\[\]]*)\]([^\[\]]*)\]"#)
+
+    static func unmask(_ text: String, vault: [String: Entry], firstName: Bool = false, describe: Bool = false, reply: Bool = false) -> String {
         func restore(_ type: String, _ n: String, _ poss: String) -> String {
             let T = type.uppercased()
             guard let e = vault["[\(T)_\(n)]"] else { return "[CHECK: \(T.lowercased())]" }
             if describe && e.type != "NAME" { return describeWords[e.type] ?? "‹detail›" }
+            if reply, let words = inReply[e.type] { return words + poss }
             let digits = digitsOf(e.value)
             if e.type == "CARD" { return "card ending in \(digits.suffix(4))" + poss }
             if e.type == "NAME" { return (firstName ? String(e.value.split(separator: " ").first ?? Substring(e.value)) : e.value) + poss }
@@ -328,6 +334,10 @@ nonisolated enum PrivacyMasker {
             let words = (group(m, 1, ns) ?? "").replacingOccurrences(of: "_", with: " ").replacingOccurrences(of: "-", with: " ")
                 .lowercased().trimmingCharacters(in: .whitespaces)
             return "[CHECK: \(words)]"
+        }
+        // A check inside a check reads badly, so it becomes one check.
+        for _ in 0..<3 {
+            out = nestedCheck.stringByReplacingMatches(in: out, range: NSRange(location: 0, length: (out as NSString).length), withTemplate: "[CHECK: $1$2$3]")
         }
         out = out.replacingOccurrences(of: #"\bcard\s+card ending in"#, with: "card ending in", options: [.regularExpression, .caseInsensitive])
         return out.replacingOccurrences(of: #"\b(?:ending in\s+)+ending in"#, with: "ending in", options: [.regularExpression, .caseInsensitive])

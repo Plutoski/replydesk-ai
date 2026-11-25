@@ -32,7 +32,7 @@ final class TicketViewModel {
         var errorDescription: String? {
             switch self {
             case .leak: return "A real detail was found in a cloud prompt, so it was not sent."
-            case .drill: return "Gemini is unavailable (failure drill)"
+            case .drill: return "Gemini is unavailable in this failure drill"
             }
         }
     }
@@ -255,8 +255,10 @@ final class TicketViewModel {
             set("draft", .running)
             let dp = HybridAI.draftPrompt(m.masked, tone: Self.tones[tone] ?? "warm and empathetic")
             let r = try await withFallback("Draft reply", dp, mode, m.vault, ctx)
-            draft = PrivacyMasker.unmask(r.text, vault: m.vault, firstName: true)
+            // Replies never repeat contact or ID details back to the customer.
+            draft = PrivacyMasker.unmask(r.text, vault: m.vault, firstName: true, reply: true)
                 .replacingOccurrences(of: "[AGENT]", with: agent.isEmpty ? "Customer Support" : agent)
+                .trimmingCharacters(in: .whitespacesAndNewlines)
             stepsTotal += 1; if r.source == .device { localSteps += 1 }
             set("draft", .done, badge: label(r.source, r.seconds), cloud: r.source == .cloud)
             if fellBackToDevice { set("route", .done, badge: "Cloud → device", cloud: false) }
