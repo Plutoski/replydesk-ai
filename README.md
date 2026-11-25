@@ -87,6 +87,7 @@ With Gemini Nano or Apple's on-device model, the model finds names and addresses
 - **On-device model lifecycle:** availability checks and user-started download (`initializeDeviceModel`), with clear states when the model isn't available.
 - **Failure planning:** see the table above.
 - **App Check** on both platforms (reCAPTCHA Enterprise on web, with limited-use tokens so a token can't be replayed; debug provider for development).
+- **Hardened hosting:** security headers block other sites from embedding the app (clickjacking), stop content-type guessing, force HTTPS and limit referrer and device-permission access.
 
 ## Run it
 
