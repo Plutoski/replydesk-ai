@@ -1,16 +1,47 @@
-# Web
-web/node_modules
-web/dist
-web/.env
-web/.firebase
-.firebase
+# --- Secrets and keys (never commit) ---
+.env
+.env.*
+!.env.example
+**/GoogleService-Info.plist
+**/google-services.json
+*.pem
+*.key
+*.p12
+*.p8
+*.mobileprovision
+*.keystore
 .firebaserc
 
-# iOS
-ios/**/GoogleService-Info.plist
+# --- Planning notes and drafts (kept locally) ---
+docs/
+notes/
+drafts/
+*.draft.md
+TODO.md
+PLAN*.md
+
+# --- Local tools and editors ---
+.claude/
+.vscode/
+.idea/
+*.swp
+.DS_Store
+
+# --- Media and archives (videos, recordings, downloads) ---
+*.zip
+*.mov
+*.mp4
+*.webp
+*.log
+
+# --- Web build output ---
+node_modules
+dist
+web/.firebase
+.firebase
+
+# --- iOS build output ---
 ios/**/xcuserdata/
 ios/**/*.xcuserstate
 ios/build/
 DerivedData/
-
-.DS_Store
