@@ -24,19 +24,23 @@ struct HybridAI {
     }
 
     /// One single-turn request. A new session each time, because sessions keep history.
+    /// Uses the Firebase AI Logic hybrid API (firebase-ios-sdk 12.13 to 12.x, iOS 26+).
     func ask(_ prompt: String, mode: Router.Mode) async throws -> (text: String, source: Source) {
         let system = FirebaseAI.SystemLanguageModel.default
-        let cloud = ai.geminiModel(name: Self.cloudModelName)
         switch mode {
         case .deviceOnly:
             let r = try await ai.generativeModelSession(model: system).respond(to: prompt)
             return (r.content, .device)
         case .preferDevice:
-            let r = try await ai.generativeModelSession(model: .hybridModel(primary: system, secondary: cloud)).respond(to: prompt)
-            return (r.content, Self.source(String(describing: r.rawResponse.modelVersion)))
+            let session = ai.generativeModelSession(
+                model: .hybridModel(primary: system, secondary: .geminiModel(name: Self.cloudModelName)))
+            let r = try await session.respond(to: prompt)
+            return (r.content, Self.source(r.rawResponse.modelVersion))
         case .preferCloud:
-            let r = try await ai.generativeModelSession(model: .hybridModel(primary: cloud, secondary: system)).respond(to: prompt)
-            return (r.content, Self.source(String(describing: r.rawResponse.modelVersion)))
+            let session = ai.generativeModelSession(
+                model: .hybridModel(primary: .geminiModel(name: Self.cloudModelName), secondary: system))
+            let r = try await session.respond(to: prompt)
+            return (r.content, Self.source(r.rawResponse.modelVersion))
         }
     }
 

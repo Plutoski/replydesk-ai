@@ -4,25 +4,24 @@ SwiftUI app using **Firebase AI Logic hybrid inference** with **Apple Foundation
 
 Requirements: a Mac with **Xcode 26**, an iPhone with **Apple Intelligence** turned on (iPhone 15 Pro or newer, including iPhone Air), and a free Apple ID. No paid Apple Developer account is needed.
 
-## 1. Create the Xcode project (once)
+## 1. Open the project
 
-1. Open Xcode → **File → New → Project…** → **iOS → App** → Next.
-2. Fill in:
-   - Product Name: `ReplyDesk`
-   - Team: your Apple ID (Add Account… if it's empty)
-   - Organization Identifier: e.g. `com.yourname` → the Bundle Identifier becomes `com.yourname.ReplyDesk`
-   - Interface: **SwiftUI**, Language: **Swift**, Storage: **None**
-3. Save it inside this `ios/` folder.
-4. In Xcode's left sidebar, **delete** the two files Xcode made (`ContentView.swift` and `ReplyDeskApp.swift`) → *Move to Trash*.
-5. Drag all six `.swift` files from `ios/ReplyDesk/` into the sidebar's `ReplyDesk` group. Tick **Copy items if needed** and the **ReplyDesk** target.
-6. Select the project (blue icon) → target **ReplyDesk** → **General** → **Minimum Deployments: iOS 26.0**.
+1. Open `ios/ReplyDesk.xcodeproj` in Xcode. Firebase (`firebase-ios-sdk`, pinned to **Exact Version 12.19.3**) downloads by itself the first time.
+   Firebase 13 replaced this hybrid API with one that needs iOS 27, so the project stays on 12.19.3 to run on iOS 26.
+2. Select the project (blue icon) → target **ReplyDesk** → **Signing & Capabilities**:
+   - **Team:** your Apple ID (Add Account… if it's empty)
+   - **Bundle Identifier:** change `com.plutoski.ReplyDesk` to something of your own, e.g. `com.yourname.ReplyDesk`
 
-## 2. Add Firebase
+## 2. Add your Firebase config
 
-1. **File → Add Package Dependencies…** → paste `https://github.com/firebase/firebase-ios-sdk` → **Add Package**.
-2. Tick **FirebaseAILogic** and **FirebaseAppCheck** → **Add Package**.
-3. In the Firebase console, add an **iOS app** with the same Bundle Identifier, download **GoogleService-Info.plist**, and drag it into the Xcode sidebar (tick the ReplyDesk target).
+1. In the Firebase console, add an **iOS app** with the same Bundle Identifier and turn on **AI Logic** (Gemini Developer API).
+2. Download **GoogleService-Info.plist** and drag it into the `ReplyDesk` folder in Xcode's sidebar (tick the ReplyDesk target).
    The plist is in `.gitignore`: don't commit it.
+
+<details><summary>Starting from an empty Xcode project instead</summary>
+
+New Project → iOS → App (SwiftUI, Swift) named `ReplyDesk` → replace its two Swift files with the six in `ios/ReplyDesk/` → Minimum Deployments **iOS 26.0** → File → Add Package Dependencies → `https://github.com/firebase/firebase-ios-sdk`, **Exact Version 12.19.3**, products **FirebaseAILogic** and **FirebaseAppCheck**.
+</details>
 
 ## 3. Run on your iPhone
 
