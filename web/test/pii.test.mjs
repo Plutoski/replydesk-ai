@@ -104,3 +104,9 @@ test("privacy evaluation stays above 90% (rules only)", () => {
   assert.ok(r.caught / r.total >= 0.9, `${r.caught}/${r.total}`);
   assert.equal(r.fpKept, r.fp);
 });
+
+test("summaries describe details instead of showing them", () => {
+  const { vault } = mask("my name is Sarah Jones, call 07911 123456, I live at 42 Maple Ave");
+  assert.equal(unmask("[NAME_1] wants a call on [PHONE_1] at [ADDRESS_1].", vault, { firstName: true, describe: true }),
+    "Sarah wants a call on ‹phone number› at ‹address›.");
+});

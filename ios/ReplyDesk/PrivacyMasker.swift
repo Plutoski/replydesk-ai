@@ -306,10 +306,15 @@ nonisolated enum PrivacyMasker {
     /// Put real values back on the device. Cards come back only as their last four digits,
     /// and so does any other long number (12+ digits) such as an account or ID.
     /// firstName: greet people by first name ("Hi Sarah", not "Hi Sarah Jones").
-    static func unmask(_ text: String, vault: [String: Entry], firstName: Bool = false) -> String {
+    /// Plain words for a detail, used in summaries where the real value isn't needed.
+    private static let describeWords = ["EMAIL": "‹email›", "PHONE": "‹phone number›", "CARD": "‹card›", "ORDER": "‹order no.›",
+        "ADDRESS": "‹address›", "POSTCODE": "‹postcode›", "ID": "‹account no.›", "ACCOUNT": "‹bank account›", "DOB": "‹date of birth›"]
+
+    static func unmask(_ text: String, vault: [String: Entry], firstName: Bool = false, describe: Bool = false) -> String {
         func restore(_ type: String, _ n: String, _ poss: String) -> String {
             let T = type.uppercased()
             guard let e = vault["[\(T)_\(n)]"] else { return "[CHECK: \(T.lowercased())]" }
+            if describe && e.type != "NAME" { return describeWords[e.type] ?? "‹detail›" }
             let digits = digitsOf(e.value)
             if e.type == "CARD" { return "card ending in \(digits.suffix(4))" + poss }
             if e.type == "NAME" { return (firstName ? String(e.value.split(separator: " ").first ?? Substring(e.value)) : e.value) + poss }

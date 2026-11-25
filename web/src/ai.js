@@ -288,7 +288,7 @@ export async function runTicket(raw, input, on) {
   // 3. Triage.
   on({ type: "step", step: "triage", state: "running" });
   const t = await withFallback("Triage", (mode) => triage(m.masked, mode), r.mode);
-  const triageOut = { ...t.data, summary: unmask(t.data.summary, m.vault, { firstName: true }) };
+  const triageOut = { ...t.data, summary: unmask(t.data.summary, m.vault, { firstName: true, describe: true }) };
   on({ type: "step", step: "triage", state: "done", source: t.source, ms: t.ms, data: triageOut });
 
   // 4. Draft (streamed), unmasked live on this device.

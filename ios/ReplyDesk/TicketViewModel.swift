@@ -244,7 +244,7 @@ final class TicketViewModel {
             let category = j["category"] as? String ?? "other"
             let sentiment = j["sentiment"] as? String ?? "neutral"
             let urgency = j["urgency"] as? String ?? "medium"
-            triage = Triage(summary: PrivacyMasker.unmask(j["summary"] as? String ?? t.text, vault: m.vault, firstName: true),
+            triage = Triage(summary: PrivacyMasker.unmask(j["summary"] as? String ?? t.text, vault: m.vault, firstName: true, describe: true),
                             category: allowed.0.contains(category) ? category : "other",
                             sentiment: allowed.1.contains(sentiment) ? sentiment : "neutral",
                             urgency: allowed.2.contains(urgency) ? urgency : "medium")

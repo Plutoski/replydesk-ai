@@ -244,11 +244,16 @@ const TYPES = "NAME|EMAIL|PHONE|CARD|ORDER|ADDRESS|POSTCODE|ID|ACCOUNT";
  * and so does any other long number (12+ digits) such as an account or ID.
  * firstName: greet people by first name ("Hi Sarah", not "Hi Sarah Jones").
  */
-export function unmask(text, vault, { firstName = false } = {}) {
+// Plain words for a detail, used in summaries where the real value isn't needed.
+const DESCRIBE = { EMAIL: "‹email›", PHONE: "‹phone number›", CARD: "‹card›", ORDER: "‹order no.›", ADDRESS: "‹address›",
+  POSTCODE: "‹postcode›", ID: "‹account no.›", ACCOUNT: "‹bank account›", DOB: "‹date of birth›" };
+
+export function unmask(text, vault, { firstName = false, describe = false } = {}) {
   const restore = (type, n, poss = "") => {
     const T = type.toUpperCase();
     const entry = vault[`[${T}_${n}]`];
     if (!entry) return `[CHECK: ${T.toLowerCase()}]`; // the AI used a tag that isn't in this message
+    if (describe && entry.type !== "NAME") return DESCRIBE[entry.type] || "‹detail›";
     const digits = entry.value.replace(/\D/g, "");
     if (entry.type === "CARD") return `card ending in ${digits.slice(-4)}` + poss;
     if (entry.type === "NAME") return (firstName ? entry.value.split(" ")[0] : entry.value) + poss;
