@@ -30,6 +30,15 @@ struct ContentView: View {
             .background(Color(.systemGroupedBackground))
             .navigationTitle("ReplyDesk")
             .scrollDismissesKeyboard(.interactively)
+            .alert("Send masked text to Gemini?", isPresented: Binding(
+                get: { vm.approvalPending },
+                set: { shown in if !shown && vm.approvalPending { vm.answerApproval(false) } })
+            ) {
+                Button("Send masked text") { vm.answerApproval(true) }
+                Button("Keep it on this iPhone", role: .cancel) { vm.answerApproval(false) }
+            } message: {
+                Text("No on-device model checked this message, so names were masked by pattern rules only. Check the masked text:\n\n" + vm.approvalText)
+            }
         }
     }
 
@@ -60,6 +69,7 @@ struct ContentView: View {
                 HStack {
                     ForEach(samples, id: \.0) { s in
                         Button(s.0) { vm.message = s.1 }
+                            .accessibilityHint("Fills in a fictional sample ticket")
                             .buttonStyle(.bordered).controlSize(.small).clipShape(Capsule())
                     }
                 }
@@ -82,6 +92,12 @@ struct ContentView: View {
             }
             .buttonStyle(.borderedProminent)
             .disabled(vm.busy)
+            Picker("Failure drill", selection: $vm.drill) {
+                ForEach(TicketViewModel.Drill.allCases) { Text($0.rawValue).tag($0) }
+            }
+            .pickerStyle(.menu)
+            Text("Failure drill: see what happens when something breaks.")
+                .font(.caption).foregroundStyle(.secondary)
             if let e = vm.errorText {
                 Text(e).font(.footnote).foregroundStyle(.red)
             }
@@ -92,6 +108,15 @@ struct ContentView: View {
     private var stepsCard: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("How this ticket was handled").font(.headline)
+            if !vm.receipt.isEmpty {
+                Text(vm.receipt)
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(vm.cloudSaw.isEmpty ? .green : .blue)
+                    .padding(10)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background((vm.cloudSaw.isEmpty ? Color.green : Color.blue).opacity(0.12), in: RoundedRectangle(cornerRadius: 10))
+                    .accessibilityAddTraits(.updatesFrequently)
+            }
             ForEach(Array(vm.steps.enumerated()), id: \.element.id) { i, s in
                 HStack(alignment: .top, spacing: 10) {
                     ZStack {
@@ -108,8 +133,8 @@ struct ContentView: View {
                     if !s.badge.isEmpty { Pill(text: s.badge, color: s.isCloud ? .blue : .green) }
                 }
             }
-            ForEach(vm.notes, id: \.self) { n in
-                Label(n, systemImage: "exclamationmark.triangle").font(.caption).foregroundStyle(.orange)
+            ForEach(vm.notes) { n in
+                Label(n.text, systemImage: "exclamationmark.triangle").font(.caption).foregroundStyle(.orange)
             }
         }
         .card()
@@ -169,9 +194,9 @@ struct ContentView: View {
     private var statsRow: some View {
         HStack {
             Stat(value: "\(vm.tickets)", label: "tickets")
-            Stat(value: vm.devicePercent, label: "steps on device")
-            Stat(value: "\(vm.protected)", label: "details protected")
-            Stat(value: "0", label: "raw details to cloud")
+            Stat(value: vm.devicePercent, label: "steps on this iPhone")
+            Stat(value: "\(vm.protected)", label: "details masked")
+            Stat(value: vm.tickets == 0 ? "–" : "\(vm.rawSent)", label: "raw details to cloud (\(vm.cloudChecked) checked)")
         }
     }
 

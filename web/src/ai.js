@@ -273,10 +273,12 @@ export async function runTicket(raw, input, on) {
     } catch (err) {
       if ((mode === "PREFER_IN_CLOUD" || mode === "ONLY_IN_CLOUD") && ctx.deviceReady) {
         log(`Cloud call failed (${short(err)}), so the ${stepName.toLowerCase()} step ran on this device instead.`);
+        on({ type: "fallback", to: "device" });
         return call(stepName, build, "ONLY_ON_DEVICE");
       }
       if (mode === "PREFER_ON_DEVICE" && ctx.online && ctx.policy !== "local-only" && maskSource === "device" && ctx.drill !== "cloud-error") {
         log(`On-device call failed (${short(err)}), so Gemini in the cloud handled the ${stepName.toLowerCase()} step, using masked text.`);
+        on({ type: "fallback", to: "cloud" });
         return call(stepName, build, "ONLY_IN_CLOUD");
       }
       throw err;

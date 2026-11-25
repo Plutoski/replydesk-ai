@@ -267,6 +267,8 @@ async function run() {
           setStep("route", { state: "done", label: r.target === "device" ? "Device" : r.target === "cloud" ? "Cloud" : "Blocked", source: r.target === "cloud" ? "cloud" : r.target === "device" ? "device" : "muted" });
         } else if (e.type === "draft") {
           $("draft").value = e.text;
+        } else if (e.type === "fallback") {
+          setStep("route", { state: "done", label: e.to === "device" ? "Cloud → device" : "Device → cloud", source: e.to === "device" ? "device" : "cloud" });
         } else if (e.type === "cloud") {
           sent.push({ step: e.step, prompt: e.prompt });
         } else if (e.type === "note") {
